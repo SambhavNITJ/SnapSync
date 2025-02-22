@@ -2,6 +2,8 @@ import {Routes, Route} from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import { SocketProvider } from './providers/Socket.jsx'
 import Room from './pages/Room.jsx'
+import './index.css'
+
 
 function App() {
   return (
