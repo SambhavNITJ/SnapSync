@@ -32,7 +32,16 @@ io.on('connection', (socket) => {
     socket.on('answer-call', ({to, ans}) => {
         io.to(to).emit('call-accepted', {ans, from: socket.id});
     });
-    
+
+    socket.on('peer-nego-needed', ({to, offer}) => {
+        io.to(to).emit('peer-nego-needed', {offer, from: socket.id});
+    });
+
+    socket.on('peer-nego-done', ({to, ans}) => {
+        io.to(to).emit('peer-nego-final', {ans, from: socket.id});
+    });
+
+
     
 });
 
