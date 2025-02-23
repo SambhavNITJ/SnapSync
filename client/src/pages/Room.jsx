@@ -2,14 +2,20 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { useSocket } from '../providers/Socket'
 import ReactPlayer from 'react-player'
 import peer from '../service/peer.js'
+import { useNavigate } from 'react-router-dom'
+import { MdCallEnd } from 'react-icons/md'
 
 function Room() {
   const socket = useSocket()
+  const navigate = useNavigate()
   const [remoteSocketId, setRemoteSocketId] = useState(null)
   const [myStream, setMyStream] = useState(null)
   const [remoteStream, setRemoteStream] = useState(null)
-  // New state to track if this peer is the caller (sender) or not
+  // Track if this peer is the caller (sender) or not
   const [isCaller, setIsCaller] = useState(null)
+  // Disable call button on caller side once clicked
+  const [isCalling, setIsCalling] = useState(false)
+  const [isAccepting, setIsAccepting] = useState(false)
 
   // Handle when another user joins the room
   const handleUserJoined = useCallback((data) => {
@@ -21,6 +27,7 @@ function Room() {
   // Function to initiate a call to a remote user (caller side)
   const handleCallUser = useCallback(async () => {
     setIsCaller(true)
+    setIsCalling(true)
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
@@ -56,7 +63,13 @@ function Room() {
     }
   }, [myStream])
 
-  // Handle call acceptance from the remote user
+  // New function for the receiver to accept the call and disable buttons
+  const handleAcceptCall = useCallback(() => {
+    setIsAccepting(true)
+    sendStream()
+  }, [sendStream])
+
+  // Handle call acceptance from the remote user (for caller side)
   const handleCallAccepted = useCallback(
     async ({ ans, from }) => {
       await peer.setLocalDescription(ans)
@@ -86,6 +99,26 @@ function Room() {
     console.log('Final negotiation:', ans)
     await peer.setLocalDescription(ans)
   }, [])
+
+  // Disconnect call: stop streams, close peer connection and navigate to lobby
+  const handleDisconnectCall = useCallback(() => {
+    // Stop local stream tracks
+    if (myStream) {
+      myStream.getTracks().forEach((track) => track.stop())
+    }
+    // Stop remote stream tracks
+    if (remoteStream) {
+      remoteStream.getTracks().forEach((track) => track.stop())
+    }
+    // Close the peer connection
+    if (peer.peer) {
+      peer.peer.close()
+    }
+    // Optionally, you can emit a disconnect event to the server here
+
+    // Navigate back to the lobby
+    navigate('/')
+  }, [myStream, remoteStream, navigate])
 
   useEffect(() => {
     peer.peer.addEventListener('negotiationneeded', handleNegotiationNeeded)
@@ -126,42 +159,54 @@ function Room() {
   ])
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
-      <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-3xl">
-        <h1 className="text-3xl font-bold mb-4 text-center">Room</h1>
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center p-4">
+      <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full max-w-3xl">
+        <h1 className="text-3xl font-bold mb-4 text-center text-white">Room</h1>
         <div className="text-center mb-6">
           <h2 className="text-xl">
             {remoteSocketId ? (
-              <span className="text-green-600">Connected</span>
+              <span className="text-green-400">Connected</span>
             ) : (
-              <span className="text-red-600">Disconnected</span>
+              <span className="text-red-400">Disconnected</span>
             )}
           </h2>
         </div>
         <div className="flex justify-center space-x-4 mb-6">
-          {/* Only show the Accept Call button (which triggers sendStream) if myStream exists and this peer is the receiver */}
+          {/* Show the Accept Call button only on receiver side */}
           {!isCaller && myStream && (
             <button
-              onClick={sendStream}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300"
+              onClick={handleAcceptCall}
+              disabled={isAccepting}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Accept Call
             </button>
           )}
-          {remoteSocketId && (
+          {remoteSocketId && isCaller !== false && (
             <button
               onClick={handleCallUser}
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              disabled={isCalling}
+              className="px-4 py-2 bg-indigo-700 text-white rounded hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Call
+            </button>
+          )}
+          {/* Disconnect call button */}
+          {(myStream || remoteStream) && (
+            <button
+              onClick={handleDisconnectCall}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center"
+            >
+              <MdCallEnd size={20} className="mr-2" />
+              End Call
             </button>
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {myStream && (
             <div className="flex flex-col items-center">
-              <h2 className="mb-2 font-semibold">My Stream</h2>
-              <div className="border rounded-lg overflow-hidden">
+              <h2 className="mb-2 font-semibold text-white">My Stream</h2>
+              <div className="border rounded-lg overflow-hidden border-gray-700">
                 <ReactPlayer
                   height="200px"
                   width="300px"
@@ -174,8 +219,8 @@ function Room() {
           )}
           {remoteStream && (
             <div className="flex flex-col items-center">
-              <h2 className="mb-2 font-semibold">Remote Stream</h2>
-              <div className="border rounded-lg overflow-hidden">
+              <h2 className="mb-2 font-semibold text-white">Remote Stream</h2>
+              <div className="border rounded-lg overflow-hidden border-gray-700">
                 <ReactPlayer
                   height="200px"
                   width="300px"

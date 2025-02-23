@@ -1,11 +1,11 @@
 import { Server } from "socket.io";
-import bodyParser from 'body-parser';
-
 
 const io = new Server(3000, {
-    cors : true,
-}
-);
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 const emailToSocketMap = new Map();
 const socketToEmailMap = new Map();
@@ -13,34 +13,59 @@ const socketToEmailMap = new Map();
 io.on('connection', (socket) => {
     console.log('New WebSocket connection:', socket.id);
 
+    // User joins a room
     socket.on('room-join', (data) => {
         const { room, email } = data;
-        console.log('User joined server side:', email, 'Room:', room);
+        console.log('User joined:', email, 'Room:', room);
 
         emailToSocketMap.set(email, socket.id);
         socketToEmailMap.set(socket.id, email);
 
-        io.to(room).emit("room-join", {email, id : socket.id});
         socket.join(room);
-        io.to(socket.id).emit('room-join', data);
+        io.to(room).emit("room-join", { email, id: socket.id });
     });
 
-    socket.on('call-user', ({to, offer}) => {
-        io.to(to).emit('incoming-call', {offer, from: socket.id});
+    // Caller initiates a call
+    socket.on('call-user', ({ to, offer }) => {
+        io.to(to).emit('incoming-call', { offer, from: socket.id });
     });
 
-    socket.on('answer-call', ({to, ans}) => {
-        io.to(to).emit('call-accepted', {ans, from: socket.id});
+    // Receiver answers the call
+    socket.on('answer-call', ({ to, ans }) => {
+        io.to(to).emit('call-accepted', { ans, from: socket.id });
     });
 
-    socket.on('peer-nego-needed', ({to, offer}) => {
-        io.to(to).emit('peer-nego-needed', {offer, from: socket.id});
+    // Negotiation needed for peer connection
+    socket.on('peer-nego-needed', ({ to, offer }) => {
+        io.to(to).emit('peer-nego-needed', { offer, from: socket.id });
     });
 
-    socket.on('peer-nego-done', ({to, ans}) => {
-        io.to(to).emit('peer-nego-final', {ans, from: socket.id});
+    // Negotiation completed
+    socket.on('peer-nego-done', ({ to, ans }) => {
+        io.to(to).emit('peer-nego-final', { ans, from: socket.id });
     });
 
+    // Handle user manually disconnecting via UI
+    socket.on('disconnect-feature', () => {
+        console.log(`User ${socket.id} manually disconnected`);
+        handleDisconnection(socket);
+    });
 
-    
+    // Handle automatic disconnection
+    socket.on('disconnect', () => {
+        console.log(`User ${socket.id} disconnected`);
+        handleDisconnection(socket);
+    });
+
+    function handleDisconnection(socket) {
+        const email = socketToEmailMap.get(socket.id);
+        if (email) {
+            emailToSocketMap.delete(email);
+            socketToEmailMap.delete(socket.id);
+            console.log(`Removed ${email} from tracking`);
+        }
+        io.emit('user-disconnected', { id: socket.id });
+    }
 });
+
+console.log("Socket.IO server running on port 3000");
