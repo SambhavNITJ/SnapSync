@@ -17,6 +17,8 @@ function Room() {
   const [isCalling, setIsCalling] = useState(false)
   const [isAccepting, setIsAccepting] = useState(false)
 
+
+
   // Handle when another user joins the room
   const handleUserJoined = useCallback((data) => {
     const { email, id } = data
@@ -24,10 +26,13 @@ function Room() {
     console.log('Another user joined:', email, 'SocketId:', id)
   }, [])
 
+
+
   // Function to initiate a call to a remote user (caller side)
   const handleCallUser = useCallback(async () => {
     setIsCaller(true)
     setIsCalling(true)
+    
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
@@ -36,6 +41,8 @@ function Room() {
     const offer = await peer.getOffer()
     socket.emit('call-user', { offer, to: remoteSocketId })
   }, [remoteSocketId, socket])
+
+
 
   // Handle incoming call request (receiver side)
   const handleIncomingCall = useCallback(
@@ -54,6 +61,7 @@ function Room() {
     [socket]
   )
 
+
   // Send the local stream tracks to the peer connection
   const sendStream = useCallback(() => {
     if (myStream) {
@@ -63,11 +71,13 @@ function Room() {
     }
   }, [myStream])
 
+
   // New function for the receiver to accept the call and disable buttons
   const handleAcceptCall = useCallback(() => {
     setIsAccepting(true)
     sendStream()
   }, [sendStream])
+
 
   // Handle call acceptance from the remote user (for caller side)
   const handleCallAccepted = useCallback(
@@ -79,11 +89,13 @@ function Room() {
     [sendStream]
   )
 
+
   // Handle negotiation needed event
   const handleNegotiationNeeded = useCallback(async () => {
     const offer = await peer.getOffer()
     socket.emit('peer-nego-needed', { offer, to: remoteSocketId })
   }, [remoteSocketId, socket])
+
 
   // Handle incoming negotiation request
   const handleNegotiationIncoming = useCallback(
@@ -94,13 +106,15 @@ function Room() {
     [socket]
   )
 
+
   // Handle final negotiation answer
   const handleNegoFinal = useCallback(async ({ ans }) => {
     console.log('Final negotiation:', ans)
     await peer.setLocalDescription(ans)
   }, [])
 
-  // Disconnect call: stop streams, close peer connection and navigate to lobby
+
+  // Disconnect call: stop streams, close peer connection, emit disconnect event and navigate to lobby
   const handleDisconnectCall = useCallback(() => {
     // Stop local stream tracks
     if (myStream) {
@@ -114,11 +128,12 @@ function Room() {
     if (peer.peer) {
       peer.peer.close()
     }
-    // Optionally, you can emit a disconnect event to the server here
-
-    // Navigate back to the lobby
+  
+    socket.emit('disconnect feature')
+ 
     navigate('/')
-  }, [myStream, remoteStream, navigate])
+  }, [myStream, remoteStream, navigate, socket])
+
 
   useEffect(() => {
     peer.peer.addEventListener('negotiationneeded', handleNegotiationNeeded)
@@ -127,6 +142,7 @@ function Room() {
     }
   }, [handleNegotiationNeeded])
 
+
   useEffect(() => {
     peer.peer.addEventListener('track', (e) => {
       console.log('Received remote track')
@@ -134,9 +150,27 @@ function Room() {
     })
   }, [])
 
+  useEffect(() => {
+    const handleUserDisconnected = () => {
+      console.log('disconnection successful')
+      setRemoteSocketId(null);
+      setIsCalling(false);
+      setIsCaller(null);
+      setMyStream(null);
+      setRemoteStream(null);
+    }
+  
+    socket.on('user-disconnected', handleUserDisconnected)
+  
+    return () => {
+      socket.off('user-disconnected', handleUserDisconnected)
+    }
+  }, [socket])
+  
+
   // Listen for socket events
   useEffect(() => {
-    socket.on('room-join', handleUserJoined)
+    socket.on('room-joined', handleUserJoined)
     socket.on('incoming-call', handleIncomingCall)
     socket.on('call-accepted', handleCallAccepted)
     socket.on('peer-nego-needed', handleNegotiationIncoming)
@@ -160,7 +194,7 @@ function Room() {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col items-center p-4">
-      <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full max-w-3xl">
+      <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full max-w-3xl mt-10">
         <h1 className="text-3xl font-bold mb-4 text-center text-white">Room</h1>
         <div className="text-center mb-6">
           <h2 className="text-xl">

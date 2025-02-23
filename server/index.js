@@ -22,7 +22,7 @@ io.on('connection', (socket) => {
         socketToEmailMap.set(socket.id, email);
 
         socket.join(room);
-        io.to(room).emit("room-join", { email, id: socket.id });
+        io.to(room).emit("room-joined", { email, room , id : socket.id});
     });
 
     // Caller initiates a call
@@ -52,7 +52,7 @@ io.on('connection', (socket) => {
     });
 
     // Handle automatic disconnection
-    socket.on('disconnect', () => {
+    socket.on('disconnect feature', () => {
         console.log(`User ${socket.id} disconnected`);
         handleDisconnection(socket);
     });
