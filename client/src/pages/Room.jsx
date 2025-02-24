@@ -2,8 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { useSocket } from '../providers/Socket'
 import ReactPlayer from 'react-player'
 import peer from '../service/peer.js'
+import { useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom'
+import Chat from '../components/Chat.jsx'
 import { toast } from "react-hot-toast";
+import { useParams } from "react-router-dom";
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Timer } from 'lucide-react';
 
 function Room() {
@@ -15,6 +18,9 @@ function Room() {
   const [isCaller, setIsCaller] = useState(null)
   const [isCalling, setIsCalling] = useState(false)
   const [isAccepting, setIsAccepting] = useState(false)
+  const location = useLocation();
+  const { email, room } = location.state || {};
+  const { roomId } = useParams();
 
   // States for audio/video toggling
   const [isAudioMuted, setIsAudioMuted] = useState(false)
@@ -37,7 +43,6 @@ function Room() {
   const handleCallUser = useCallback(async () => {
     setIsCaller(true)
     setIsCalling(true)
-    
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true,
@@ -113,12 +118,11 @@ function Room() {
     if (peer.peer) {
       peer.peer.close()
     }
-  
     socket.emit('disconnect feature')
     toast.success('Disconnecting Call')
     setTimeout(() => {
-      navigate('/');
-    }, 1000);
+      navigate('/')
+    }, 1000)
   }, [myStream, remoteStream, navigate, socket])
 
   // Toggle audio with fade effect and icon swap
@@ -126,30 +130,30 @@ function Room() {
     if (myStream) {
       setAudioFade(true)
       setTimeout(() => {
-        const newMutedState = !isAudioMuted;
+        const newMutedState = !isAudioMuted
         myStream.getAudioTracks().forEach((track) => {
-          track.enabled = !newMutedState;
-        });
-        setIsAudioMuted(newMutedState);
+          track.enabled = !newMutedState
+        })
+        setIsAudioMuted(newMutedState)
         setAudioFade(false)
       }, 300)
     }
-  };
+  }
 
   // Toggle video with fade effect and icon swap
   const handleToggleVideo = () => {
     if (myStream) {
       setVideoFade(true)
       setTimeout(() => {
-        const newVideoState = !isVideoStopped;
+        const newVideoState = !isVideoStopped
         myStream.getVideoTracks().forEach((track) => {
-          track.enabled = !newVideoState;
-        });
-        setIsVideoStopped(newVideoState);
+          track.enabled = !newVideoState
+        })
+        setIsVideoStopped(newVideoState)
         setVideoFade(false)
       }, 300)
     }
-  };
+  }
 
   // Start the call timer once remoteStream is available (call established)
   useEffect(() => {
@@ -160,7 +164,7 @@ function Room() {
 
   // Update call duration every second
   useEffect(() => {
-    let interval;
+    let interval
     if (callStartTime) {
       interval = setInterval(() => {
         setCallDuration(Math.floor((Date.now() - callStartTime) / 1000))
@@ -194,35 +198,39 @@ function Room() {
 
   useEffect(() => {
     const handleUserDisconnected = () => {
-      console.log('User disconnected. Closing streams...');
-  
+      console.log('User disconnected. Closing streams...')
       if (myStream) {
-        myStream.getTracks().forEach((track) => track.stop());
+        myStream.getTracks().forEach((track) => track.stop())
       }
       if (remoteStream) {
-        remoteStream.getTracks().forEach((track) => track.stop());
+        remoteStream.getTracks().forEach((track) => track.stop())
       }
-  
-      setRemoteSocketId(null);
-      setIsCalling(false);
-      setIsCaller(null);
-      setMyStream(null);
-      setRemoteStream(null);
+      setRemoteSocketId(null)
+      setIsCalling(false)
+      setIsCaller(null)
+      setMyStream(null)
+      setRemoteStream(null)
       setCallStartTime(null)
       setCallDuration(0)
-  
       setTimeout(() => {
-        toast.error('User disconnected. Create a new room...');
-        navigate('/');
-      }, 2000);
-    };
-  
-    socket.on('user-disconnected', handleUserDisconnected);
-  
+        toast.error('User disconnected. Create a new room...')
+        navigate('/')
+      }, 2000)
+    }
+    socket.on('user-disconnected', handleUserDisconnected)
     return () => {
-      socket.off('user-disconnected', handleUserDisconnected);
-    };
-  }, [socket, navigate, myStream, remoteStream]);
+      socket.off('user-disconnected', handleUserDisconnected)
+    }
+  }, [socket, navigate, myStream, remoteStream])
+
+  useEffect(() => {
+    const storageKey = `roomAlertShown-${roomId}`;
+    const alertShown = sessionStorage.getItem(storageKey);
+    if (!alertShown) {
+      toast.success(`Room ID: ${roomId}\n`);
+      sessionStorage.setItem(storageKey, "true");
+    }
+  }, [roomId])
   
   useEffect(() => {
     socket.on('room-joined', handleUserJoined)
@@ -230,7 +238,6 @@ function Room() {
     socket.on('call-accepted', handleCallAccepted)
     socket.on('peer-nego-needed', handleNegotiationIncoming)
     socket.on('peer-nego-final', handleNegoFinal)
-
     return () => {
       socket.off('room-joined', handleUserJoined)
       socket.off('incoming-call', handleIncomingCall)
@@ -248,7 +255,7 @@ function Room() {
   ])
 
   return (
-    <div className="h-screen bg-gray-900 flex flex-col overflow-hidden relative">
+    <div className="h-screen bg-gray-900 flex relative">
       {/* Call Duration Display (visible after call starts) */}
       {callStartTime && (
         <div className="absolute top-4 right-4 text-white flex items-center gap-2 z-10">
@@ -257,10 +264,10 @@ function Room() {
         </div>
       )}
 
-      {/* Main content container with bottom padding */}
-      <div className="flex-grow flex flex-col items-center justify-center pb-20 w-full">
+      {/* Video Call Section (Left 75%) */}
+      <div className="flex-grow w-3/4 flex flex-col items-center justify-center pb-20">
         <div className="bg-gray-800 shadow-lg rounded-lg p-6 w-full max-w-3xl">
-          <h1 className="text-3xl font-bold mb-4 text-center text-white">Room</h1>
+          <h1 className="text-3xl font-bold mb-3 mt-1 text-center text-white">Room</h1>
           <div className="text-center mb-6">
             <h2 className="text-xl">
               {remoteSocketId ? (
@@ -296,7 +303,7 @@ function Room() {
                 <h2 className="mb-2 font-semibold text-white">My Stream</h2>
                 <div className="border rounded-lg overflow-hidden border-gray-700">
                   <ReactPlayer
-                    height="200px"
+                    height="220px"
                     width="300px"
                     url={myStream}
                     playing
@@ -310,7 +317,7 @@ function Room() {
                 <h2 className="mb-2 font-semibold text-white">Remote Stream</h2>
                 <div className="border rounded-lg overflow-hidden border-gray-700">
                   <ReactPlayer
-                    height="200px"
+                    height="220px"
                     width="300px"
                     url={remoteStream}
                     playing
@@ -323,9 +330,9 @@ function Room() {
         </div>
       </div>
       
-      {/* Fixed footer controls */}
+      {/* Fixed Footer Controls (spanning Left 75%) */}
       {myStream && (
-        <footer className="fixed bottom-0 left-0 right-0 bg-gray-800 p-4">
+        <footer className="fixed bottom-0 left-0 w-3/4 bg-gray-800 p-4">
           <div className="flex justify-center gap-4">
             <button
               onClick={handleToggleMute}
@@ -356,6 +363,15 @@ function Room() {
           </div>
         </footer>
       )}
+      
+      {/* Chat Section (Right 25%) */}
+      <div className="w-1/4 bg-gray-800 p-4 border-l border-gray-700 h-full flex flex-col">
+        <h2 className="text-white text-lg font-bold mb-3">In-Call Chats</h2>
+        <div className="flex-1 min-h-0 overflow-hidden">
+        <Chat email={email} room={room} />
+        </div>
+      </div>
+
     </div>
   )
 }

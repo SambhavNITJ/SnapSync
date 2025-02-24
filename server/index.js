@@ -22,7 +22,18 @@ io.on('connection', (socket) => {
         socketToEmailMap.set(socket.id, email);
 
         socket.join(room);
-        io.to(room).emit("room-joined", { email, room , id : socket.id});
+        io.to(room).emit("room-joined", { email, room, id: socket.id });
+    });
+
+    // Chat message handling
+    socket.on("chat-message", (data) => {
+        const { room, email, message, timestamp } = data;
+        if (!room) {
+            console.error("No room provided for chat message.");
+            return;
+        }
+        console.log(`Chat message from ${email} in room ${room}: ${message}`);
+        io.to(room).emit("chat-message", { email, message, timestamp });
     });
 
     // Caller initiates a call

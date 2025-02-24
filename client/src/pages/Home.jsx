@@ -30,7 +30,7 @@ function Home() {
     (data) => {
       const { email, room } = data
       console.log('You joined client side', email, 'Room:', room)
-      navigate(`/room/${room}`)
+      navigate(`/room/${room}`, {state: { email, room }})
     },
     [navigate]
   )
