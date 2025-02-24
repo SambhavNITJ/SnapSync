@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo } from "react";
 import { io } from "socket.io-client";
+
 const SocketContext = createContext(null);
 
 export const useSocket = () => {
@@ -8,10 +9,10 @@ export const useSocket = () => {
 }
 
 export const SocketProvider = (props) => {
-    const socket = useMemo(() => io(`${import.meta.env.BACKEND}`), []);
-  return (
-    <SocketContext.Provider value={socket}>
-      {props.children}
-    </SocketContext.Provider>
-  );
+    const socket = useMemo(() => io(import.meta.env.VITE_BACKEND), []);
+    return (
+        <SocketContext.Provider value={socket}>
+          {props.children}
+        </SocketContext.Provider>
+    );
 }
