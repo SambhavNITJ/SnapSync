@@ -1,8 +1,9 @@
 import { Server } from "socket.io";
+import "dotenv/config";
 
 const io = new Server(3000, {
     cors: {
-        origin: "*",
+        origin: `${process.env.FRONTEND_URL}`,
         methods: ["GET", "POST"]
     }
 });
