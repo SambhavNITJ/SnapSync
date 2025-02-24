@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useEffect } from 'react'
 import { useSocket } from '../providers/Socket'
 import { useNavigate } from 'react-router-dom'
+import { toast } from "react-hot-toast";
 
 function Home() {
   const [email, setEmail] = useState('')
@@ -30,10 +31,16 @@ function Home() {
     (data) => {
       const { email, room } = data
       console.log('You joined client side', email, 'Room:', room)
-      navigate(`/room/${room}`, {state: { email, room }})
+      navigate(`/room/${room}`, { state: { email, room } })
     },
     [navigate]
   )
+
+  const handleGenerateRoom = useCallback(() => {
+    // Generate a random number between 100 and 999
+    const randomRoomId = Math.floor(Math.random() * 900) + 100
+    toast.success(`Room ID is: ${randomRoomId}. Please copy this ID and share it with others.`)
+  }, [])
 
   useEffect(() => {
     socket.on('room-joined', handleJoinRoom)
@@ -82,6 +89,16 @@ function Home() {
               className="w-full py-2 px-4 rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               Join Room
+            </button>
+          </div>
+          
+          <div>
+            <button
+              type="button"
+              onClick={handleGenerateRoom}
+              className="w-full py-2 px-4 rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Generate Random Room
             </button>
           </div>
         </form>
